@@ -1,95 +1,197 @@
-from __future__ import print_function
-import sys
-import re
+from random import randint
 
-DEFAULT_SIZE = 3
-EMPTY =  ' '
+class Player:
+  PLAYER_NONE = 0
+  PLAYER_ONE  = 1
+  PLAYER_TWO  = 2
 
-def parse_user_input(board, user_input):
-	mark = None
-	ret_val = None
-	valid_input = False
+SYMBOLS = {
+  Player.PLAYER_NONE: ' ',
+  Player.PLAYER_ONE:  'X',
+  Player.PLAYER_TWO:  'O',
+}
 
-	print(user_input)
-	pattern = re.compile('^([0-9])*,([0-9])*$')
-	
-	if (pattern.match(user_input)):
-		mark = [int(x) for x in user_input.split(',')]
-	else:
-		print('Invalid format')
+VALUES  = {
+  Player.PLAYER_NONE: 0,
+  Player.PLAYER_ONE:  1,
+  Player.PLAYER_TWO: -1,
+}
 
-	is_in_bounds = ((mark != None) and
-		            (mark[0] < len(board) and mark[1] < len(board)))
-	is_not_occupied = ((mark != None) and
-		               is_in_bounds and 
-		               board[mark[0]][mark[1]] == EMPTY)
+GRID_SIZE = 3
 
-	if (is_in_bounds and is_not_occupied):
-		ret_val = mark
-	else:
-		if (not is_in_bounds):
-			print('Out of bounds')
-		if (not is_not_occupied):
-			print('Location occupied')
-	return ret_val
+def generate_ai_input(grid):
+  row    = randint(0, GRID_SIZE-1)
+  column = randint(0, GRID_SIZE-1)
 
-def mark_board(board, location, player):
-	user_symbol = EMPTY
-	if (player % 2 == 0):
-		user_symbol = 'x'
-	else:
-		user_symbol = 'o'
+  square = grid[row][column]
 
-	board[location[0]][location[1]] = user_symbol
+  while (square != Player.PLAYER_NONE):
+    row    = randint(0, GRID_SIZE-1)
+    column = randint(0, GRID_SIZE-1)
+
+    square = grid[row][column]
+
+  return (row, column)
 
 
-def get_user_input(board, player):
-	print('Player ', player, ' turn')
-	print('Please indicate where you want to place your mark.')
-	user_input = raw_input('Please use format "x,y": ')
-	ret_val = parse_user_input(board, user_input)
-	
-	while (ret_val == None):
-		user_input = raw_input('Invalid input. Please use format "x,y": ')
-		ret_val = parse_user_input(board, user_input)
-	
-	return ret_val
+def init_grid(size):
+  return [[Player.PLAYER_NONE for x in range(size)] for y in range(size)]
 
-def print_board(board):
-	sys.stdout.write('\033[H')  # move to the top
-	sys.stdout.write('\033[J')  # clear the screen
 
-	for i in xrange(len(board)):
-		row = ''
-		for j in xrange(len(board[i])):
-			row = row + board[i][j]
-			#vertical border
-			if j < len(board[i])-1:
-				row = row + '|'
-		print(row)
-		#horizontal border
-		if i < len(board)-1:
-			row = '-'*len(row)
-			print(row)
+def print_grid(grid):
+  for row in grid:
+    print '|',
+    for column in row:
+      print SYMBOLS[column] + '|',
+    print
 
-def init_board(size):
-	board = [' '] * size
-	for i in xrange(size):
-		board[i] = [' '] * size
-	return board
 
-def main(size):
-	counter = 0
-	game_over = False
-	board = init_board(size)
-	pattern = re.compile('1')
+def mark_grid(grid, user_id, row, column):
+  grid[row][column] = user_id
 
-	while (counter < size*size and
-		   game_over == False):
-		print_board(board)
-		location = get_user_input(board, counter%2)
-		mark_board(board, location, counter%2)
-		counter += 1
 
-if __name__ == '__main__':
-    main(DEFAULT_SIZE)
+def get_current_user_id(turn):
+  return Player.PLAYER_ONE if (turn % 2 == 0) else Player.PLAYER_TWO
+
+
+def validate_user_input(grid, row, column):
+
+  try:
+    is_valid = (row    in range(GRID_SIZE) and
+                column in range(GRID_SIZE) and
+                grid[row][column] == Player.PLAYER_NONE)
+
+  except TypeError:
+    is_valid = False
+
+  return is_valid
+
+def get_prompted_user_input(grid, current_user):
+  print("user " + str(current_user) + "'s turn")
+
+  try:
+    raw_row    = raw_input("row: ")
+    raw_column = raw_input("column: ")
+    row    = int(raw_row)
+    column = int(raw_column)
+  
+  except:
+    row    = -1
+    column = -1
+  
+  return (row, column)
+
+def get_validated_user_input(grid, current_user):
+  (row, column) = get_prompted_user_input(grid, current_user)
+  
+  while(validate_user_input(grid, row, column) == False):
+    print("Invalid input. Try again.")
+    (row, column) = get_prompted_user_input(grid, current_user)
+
+
+  return (row, column)
+
+
+def get_row_winner(grid):
+  winner = Player.PLAYER_NONE
+
+  for row in range(GRID_SIZE):
+    row_sum = sum(VALUES[grid[row][column]] for column in range(GRID_SIZE))
+
+    if row_sum == GRID_SIZE * VALUES[Player.PLAYER_ONE]:
+      winner = Player.PLAYER_ONE
+      break
+
+    elif row_sum == GRID_SIZE * VALUES[Player.PLAYER_TWO]:
+      winner = Player.PLAYER_TWO
+      break
+
+    row_sum = 0
+
+  return winner
+
+
+def get_column_winner(grid):
+  winner = Player.PLAYER_NONE
+
+  for column in range(GRID_SIZE):
+    column_sum = sum(VALUES[grid[row][column]] for row in range(GRID_SIZE))
+
+    if column_sum == GRID_SIZE * VALUES[Player.PLAYER_ONE]:
+      winner = Player.PLAYER_ONE
+      break
+
+    elif column_sum == GRID_SIZE * VALUES[Player.PLAYER_TWO]:
+      winner = Player.PLAYER_TWO
+      break
+
+    column_sum = 0
+
+  return winner
+
+
+def get_diag_winner(grid):
+  winner = Player.PLAYER_NONE
+
+  forward_diag_sum  = sum(VALUES[grid[index][index]] for index in range(GRID_SIZE))
+  backward_diag_sum = sum(VALUES[grid[index][(GRID_SIZE - 1) - index]] for index in range(GRID_SIZE))
+  
+  if (forward_diag_sum  == GRID_SIZE * VALUES[Player.PLAYER_ONE] or
+      backward_diag_sum == GRID_SIZE * VALUES[Player.PLAYER_ONE]):
+    winner = Player.PLAYER_ONE
+
+  elif (forward_diag_sum  == GRID_SIZE * VALUES[Player.PLAYER_TWO] or
+        backward_diag_sum == GRID_SIZE * VALUES[Player.PLAYER_TWO]):
+    winner = Player.PLAYER_TWO
+
+  return winner
+
+def get_winner(grid):
+  winner = Player.PLAYER_NONE
+
+  winner = get_row_winner(grid)
+
+  if winner == Player.PLAYER_NONE:
+    winner = get_column_winner(grid)
+
+  if winner == Player.PLAYER_NONE:
+    winner = get_diag_winner(grid)
+
+  return winner
+
+
+if __name__ == "__main__":
+
+  winner = Player.PLAYER_NONE
+  total_possible_turns = GRID_SIZE * GRID_SIZE
+  grid = init_grid(GRID_SIZE)
+
+  print("Welcome to tictactoe!")
+  print
+
+  print_grid(grid)
+
+  for turn in range(total_possible_turns):
+
+    current_user = get_current_user_id(turn)
+
+    if (current_user == Player.PLAYER_TWO):
+      (row, column) = generate_ai_input(grid)
+    else:
+      (row, column) = get_validated_user_input(grid, current_user)
+
+    mark_grid(grid, current_user, row, column)
+
+    print("After turn " + str(turn) + " grid updated")
+  
+    print_grid(grid)
+
+    winner = get_winner(grid)
+
+    if winner != Player.PLAYER_NONE:
+      print("Congratulations!")
+      print("user " + str(current_user) + " has won!")
+      break
+
+  if winner != Player.PLAYER_NONE:
+    print("Game ended in a tie")
